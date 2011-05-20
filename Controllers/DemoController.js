@@ -1,7 +1,4 @@
-function DemoController(request, response) {
-	this.Request = request;
-	this.Response = response;
-}
+function DemoController() {}
 
 DemoController.prototype.onActionUnavailable = function(methodName, data) {
 	this.getView("Error_404").render(this.Response);
