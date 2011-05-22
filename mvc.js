@@ -117,10 +117,32 @@ var Routes = exports.Routes = new (function() {
 		return this;
 	};
 	
-	this.addStaticDirectory = function(path) {
-		path = path || "";
-		if(path.substr(-1) != "/") { path+="/"; }
-		staticPaths.push(path);
+	this.addStatic = function(pattern, path) {
+		if(typeof(pattern) === 'string') {
+			path = path || ("."+pattern);
+			if(pattern.substr(-1) === "/") {
+				// serve up everything in this directory
+				staticPaths.push({
+					test : function(url) { return !url.indexOf(pattern); },
+					getPath : function(url) { return path + url.replace(pattern,""); }
+				});
+			} else {
+				// serve up individual file
+				staticPaths.push({
+					test : function(url) { return url === pattern; },
+					getPath : function(url) { return path; }
+				});
+			}
+		} else if (pattern instanceof RegExp) {
+			if(!(typeof(path) in { 'string':0, 'function':0 })) {
+				throw "Path must be a string or function when using RegExp pattern in addStatic";
+			}
+
+			staticPaths.push({
+				test : function(url) { return pattern.test(url); },
+				getPath : function(url) { return url.replace(pattern, path); }
+			});
+		}
 
 		return this;
 	};
@@ -134,17 +156,17 @@ var Routes = exports.Routes = new (function() {
 		};
 	};
 
-    this.parseQueryString = function(qs) {
-        var nv = {};
-        var parts = (qs || "").split('&');
-        var eqPos;
-        for(var i=0; i<parts.length; i++) {
-            eqPos = parts[i].indexOf('=');
-            if(!~eqPos) { continue; }
-            nv[parts[i].substr(0,eqPos)] = parts[i].substr(eqPos+1);
-        }
-        return nv;
-    };
+	this.parseQueryString = function(qs) {
+		var nv = {};
+		var parts = (qs || "").split('&');
+		var eqPos;
+		for(var i=0; i<parts.length; i++) {
+			eqPos = parts[i].indexOf('=');
+			if(!~eqPos) { continue; }
+			nv[parts[i].substr(0,eqPos)] = parts[i].substr(eqPos+1);
+		}
+		return nv;
+	};
 
     this.parsePattern = function(pattern, url) {
 		
@@ -258,9 +280,9 @@ var Router = exports.Router = function() {
 		//check static paths first
 		var verdict;
 		for(var i=0; i<staticPaths.length; i++) {
-			if(url.indexOf(staticPaths[i]) == 0) {
-				verdict = StaticResourceHandler.serve("."+url, response);
-				if(verdict) { return };
+			if(staticPaths[i].test(url)) {
+				verdict = StaticResourceHandler.serve(staticPaths[i].getPath(url), response);
+				if(verdict) { return; }
 			}
 		}
 
